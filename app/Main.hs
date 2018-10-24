@@ -2,11 +2,11 @@
 
 module Main where
 
-import           Data.Map                      as M
+import qualified Data.Map                      as M
 import           Control.Monad.State
 import           Text.ParserCombinators.Parsec
 
-run :: StateT (Map String Type) IO ()
+run :: StateT (M.Map String Type) IO ()
 run = do
     input <- lift getLine
     case parse inputParser "<input>" input of
@@ -19,8 +19,15 @@ run = do
                 Nothing -> (lift . putStrLn) "定義されてない値があります"
             return ()
         Right (IDefine (name, t)) -> modify $ M.insert name t
-        Right (ILoad   _        ) -> (lift . putStrLn) "未対応の命令です"
-        Left  e                   -> (lift . print) e
+        Right (ILoad   file     ) -> do
+            input <- (lift . readFile) file
+            case parse varDefineFileParser file input of
+                Right x -> do
+                    m <- get
+                    put $ foldr (uncurry M.insert) m x
+                Left e -> (lift . print) e
+            return ()
+        Left e -> (lift . print) e
     run
 
 main :: IO ()
