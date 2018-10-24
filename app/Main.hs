@@ -2,6 +2,7 @@ module Main where
 
 import           Data.Map                      as M
 import           Control.Monad.State
+import           Text.ParserCombinators.Parsec
 
 main :: IO ()
 main = do
@@ -14,6 +15,32 @@ main = do
     let res    = evalStateT (inference expect) input
     putStrLn $ maybeAstToString res
     return ()
+
+nameParser :: Parser String
+nameParser = (:) <$> lower <*> many (letter <|> digit)
+
+annotationParser :: Parser Type
+annotationParser = string "::" *> typeParser
+
+varDefineParser :: Parser (String, Type)
+varDefineParser = (,) <$> nameParser <*> annotationParser
+
+varDefineListParser :: Parser [(String, Type)]
+varDefineListParser = many $ varDefineParser <* newline
+
+typeParser :: Parser Type
+typeParser =
+    (TValue <$ char '*')
+        <|> TFunc
+        <$> typeParser
+        <*  string "->"
+        <*> typeParser
+        <|> char '('
+        *>  typeParser
+        <*  char ')'
+
+inputParser :: Parser ([String], Type)
+inputParser = (,) <$> many nameParser <*> annotationParser
 
 data Type=TValue|TFunc Type Type deriving (Eq,Show)
 
