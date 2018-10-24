@@ -28,7 +28,7 @@ astToString (ACall a b  ) = "(" ++ astToString a ++ " " ++ astToString b ++ ")"
 inferenceFunc :: Type -> AST -> Type -> Type -> [(String, Type)] -> Maybe AST
 inferenceFunc expect ast param result _ | expect == TFunc param result =
     Just ast
-inferenceFunc expect ast param result (x : xs) = do
+inferenceFunc expect ast param result xs = do
     p <- inference param xs
     let newAST = ACall ast p
     if expect == result
@@ -36,7 +36,6 @@ inferenceFunc expect ast param result (x : xs) = do
         else case result of
             TFunc a b -> inferenceFunc expect newAST a b xs
             TValue    -> Nothing
-inferenceFunc expect ast param result [] = Nothing
 
 inference :: Type -> [(String, Type)] -> Maybe AST
 inference TValue      ((name, TValue) : xs) = (Just . AValue) name
