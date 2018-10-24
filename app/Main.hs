@@ -5,6 +5,7 @@ module Main where
 import qualified Data.Map                      as M
 import           Control.Monad.State
 import           Text.ParserCombinators.Parsec
+import qualified Control.Exception             as E
 
 run :: StateT (M.Map String Type) IO ()
 run = do
@@ -20,12 +21,20 @@ run = do
             return ()
         Right (IDefine (name, t)) -> modify $ M.insert name t
         Right (ILoad   file     ) -> do
-            input <- (lift . readFile) file
-            case parse varDefineFileParser file input of
-                Right x -> do
-                    m <- get
-                    put $ foldr (uncurry M.insert) m x
-                Left e -> (lift . print) e
+            input <-
+                ( lift
+                    . (`E.catch` (\(E.SomeException _) -> return Nothing))
+                    . fmap Just
+                    . readFile
+                    )
+                    file
+            case input of
+                Just input -> case parse varDefineFileParser file input of
+                    Right x -> do
+                        m <- get
+                        put $ foldr (uncurry M.insert) m x
+                    Left e -> (lift . print) e
+                Nothing -> (lift . putStrLn) "ファイル読み込みエラーが発生しました"
             return ()
         Left e -> (lift . print) e
     run
