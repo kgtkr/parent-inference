@@ -1,7 +1,7 @@
 {-# LANGUAGE TupleSections #-}
 
 module Main where
-
+import           System.IO
 import qualified Data.Map                      as M
 import           Control.Monad.State
 import           Text.ParserCombinators.Parsec
@@ -9,6 +9,8 @@ import qualified Control.Exception             as E
 
 run :: StateT (M.Map String Type) IO ()
 run = do
+    (lift . putStr) ">"
+    (lift . hFlush) stdout
     input <- lift getLine
     case parse inputParser "<input>" input of
         Right (ICode (code, expect)) -> do
