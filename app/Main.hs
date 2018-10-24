@@ -97,6 +97,13 @@ inferenceNext = do
             return x
         [] -> lift Nothing
 
+inferenceEof :: Inferencer ()
+inferenceEof = do
+    l <- get
+    case l of
+        (_ : _) -> lift Nothing
+        []      -> return ()
+
 maybeAstToString :: Maybe AST -> String
 maybeAstToString (Just ast) = astToString ast
 maybeAstToString Nothing    = "Error"
@@ -109,7 +116,7 @@ inferenceFunc :: Type -> AST -> Type -> Type -> Inferencer AST
 inferenceFunc expect ast param result | expect == TFunc param result =
     return ast
 inferenceFunc expect ast param result = do
-    p <- inference param
+    p <- inferenceOne param
     let newAST = ACall ast p
     if expect == result
         then return newAST
@@ -117,10 +124,16 @@ inferenceFunc expect ast param result = do
             TFunc a b -> inferenceFunc expect newAST a b
             TValue    -> lift Nothing
 
-inference :: Type -> Inferencer AST
-inference expect = do
+inferenceOne :: Type -> Inferencer AST
+inferenceOne expect = do
     next <- inferenceNext
     case next of
         (name, TValue) ->
             if expect == TValue then return (AValue name) else lift Nothing
         (name, TFunc a b) -> inferenceFunc expect (AValue name) a b
+
+inference :: Type -> Inferencer AST
+inference x = do
+    ast <- inferenceOne x
+    inferenceEof
+    return ast
