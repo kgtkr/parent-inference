@@ -5,11 +5,11 @@ import           Control.Monad.State
 
 main :: IO ()
 main = do
-    let expect = TValue
+    let expect = TFunc TValue TValue
     let x      = ("x", TValue)
     let f      = ("f", TFunc TValue TValue)
-    let g = ("g", TFunc TValue (TFunc TValue TValue))
-    let h = ("h", TFunc (TFunc TValue TValue) TValue)
+    let g      = ("g", TFunc TValue (TFunc TValue TValue))
+    let h      = ("h", TFunc (TFunc TValue TValue) TValue)
     let input  = [g, g, h, g, x, f, g, x, x]
     let res    = evalStateT (inference expect) input
     putStrLn $ maybeAstToString res
