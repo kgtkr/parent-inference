@@ -26,7 +26,7 @@ varDefineParser :: Parser (String, Type)
 varDefineParser = (,) <$> nameParser <*> annotationParser
 
 varDefineListParser :: Parser [(String, Type)]
-varDefineListParser = many $ varDefineParser <* newline
+varDefineListParser = sepBy varDefineParser newline
 
 typeParser :: Parser Type
 typeParser =
@@ -39,8 +39,11 @@ typeParser =
         *>  typeParser
         <*  char ')'
 
-inputParser :: Parser ([String], Type)
-inputParser = (,) <$> many nameParser <*> annotationParser
+callParser :: Parser ([String], Type)
+callParser = (,) <$> sepBy nameParser (char ' ') <*> annotationParser
+
+inputParser :: Parser ([(String, Type)], ([String], Type))
+inputParser = (,) <$> varDefineListParser <* newline <*> callParser <* eof
 
 data Type=TValue|TFunc Type Type deriving (Eq,Show)
 
