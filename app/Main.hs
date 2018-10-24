@@ -1,6 +1,7 @@
 module Main where
 
 import           Data.Map                      as M
+import           Control.Monad.State
 
 main :: IO ()
 main = do
@@ -9,14 +10,24 @@ main = do
     let f      = ("f", TFunc TValue TValue)
     let g = ("g", TFunc TValue (TFunc TValue TValue))
     let h = ("h", TFunc (TFunc TValue TValue) TValue)
-    let input  = [h, f]
-    let res    = inference expect input
+    let input  = [g, g, h, g, x, f, g, x, x]
+    let res    = evalStateT (inference expect) input
     putStrLn $ maybeAstToString res
     return ()
 
 data Type=TValue|TFunc Type Type deriving (Eq,Show)
 
 data AST=AValue String|ACall AST AST deriving (Eq,Show)
+
+type Inferencer=StateT [(String, Type)] Maybe
+inferenceNext :: Inferencer (String, Type)
+inferenceNext = do
+    l <- get
+    case l of
+        (x : xs) -> do
+            put xs
+            return x
+        [] -> lift Nothing
 
 maybeAstToString :: Maybe AST -> String
 maybeAstToString (Just ast) = astToString ast
@@ -26,21 +37,22 @@ astToString :: AST -> String
 astToString (AValue name) = name
 astToString (ACall a b  ) = "(" ++ astToString a ++ " " ++ astToString b ++ ")"
 
-inferenceFunc :: Type -> AST -> Type -> Type -> [(String, Type)] -> Maybe AST
-inferenceFunc expect ast param result _ | expect == TFunc param result =
-    Just ast
-inferenceFunc expect ast param result xs = do
-    p <- inference param xs
+inferenceFunc :: Type -> AST -> Type -> Type -> Inferencer AST
+inferenceFunc expect ast param result | expect == TFunc param result =
+    return ast
+inferenceFunc expect ast param result = do
+    p <- inference param
     let newAST = ACall ast p
     if expect == result
-        then Just newAST
+        then return newAST
         else case result of
-            TFunc a b -> inferenceFunc expect newAST a b xs
-            TValue    -> Nothing
+            TFunc a b -> inferenceFunc expect newAST a b
+            TValue    -> lift Nothing
 
-inference :: Type -> [(String, Type)] -> Maybe AST
-inference TValue      ((name, TValue) : xs) = (Just . AValue) name
-inference (TFunc _ _) ((_   , TValue) : _ ) = Nothing
-inference expect ((name, TFunc a b) : xs) =
-    inferenceFunc expect (AValue name) a b xs
-inference _ [] = Nothing
+inference :: Type -> Inferencer AST
+inference expect = do
+    next <- inferenceNext
+    case next of
+        (name, TValue) ->
+            if expect == TValue then return (AValue name) else lift Nothing
+        (name, TFunc a b) -> inferenceFunc expect (AValue name) a b
