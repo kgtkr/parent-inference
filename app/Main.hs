@@ -8,7 +8,8 @@ main = do
     let x      = ("x", TValue)
     let f      = ("f", TFunc TValue TValue)
     let g = ("g", TFunc TValue (TFunc TValue TValue))
-    let input  = [f, f, x]
+    let h = ("h", TFunc (TFunc TValue TValue) TValue)
+    let input  = [h, f]
     let res    = inference expect input
     putStrLn $ maybeAstToString res
     return ()
