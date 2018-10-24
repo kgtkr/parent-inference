@@ -4,16 +4,22 @@ import           Data.Map                      as M
 import           Control.Monad.State
 import           Text.ParserCombinators.Parsec
 
+getUserInput :: IO String
+getUserInput = getUserInput' ""
+  where
+    getUserInput' s = do
+        line <- getLine
+        if line == "" then return s else getUserInput' (s ++ line ++ "\n")
+
 main :: IO ()
 main = do
-    let expect = TFunc TValue TValue
-    let x      = ("x", TValue)
-    let f      = ("f", TFunc TValue TValue)
-    let g      = ("g", TFunc TValue (TFunc TValue TValue))
-    let h      = ("h", TFunc (TFunc TValue TValue) TValue)
-    let input  = [g, g, h, g, x, f, g, x, x]
-    let res    = evalStateT (inference expect) input
-    putStrLn $ maybeAstToString res
+    input <- getUserInput
+    let x = parse inputParser "input" input
+    case x of
+        Right x -> do
+            let res = runInference x
+            putStrLn $ maybeAstToString res
+        Left e -> print e
     return ()
 
 nameParser :: Parser String
@@ -28,22 +34,21 @@ varDefineParser = (,) <$> nameParser <*> annotationParser
 varDefineListParser :: Parser [(String, Type)]
 varDefineListParser = sepBy varDefineParser newline
 
+typeFactorParser :: Parser Type
+typeFactorParser = char '(' *> typeParser <* char ')' <|> (TValue <$ char '*')
+
 typeParser :: Parser Type
 typeParser =
-    (TValue <$ char '*')
-        <|> TFunc
-        <$> typeParser
-        <*  string "->"
-        <*> typeParser
-        <|> char '('
-        *>  typeParser
-        <*  char ')'
-
-callParser :: Parser ([String], Type)
-callParser = (,) <$> sepBy nameParser (char ' ') <*> annotationParser
+    try (TFunc <$> typeFactorParser <* string "->" <*> typeParser)
+        <|> typeFactorParser
+opParser :: Parser ([String], Type)
+opParser = (,) <$> (char '>' *> sepBy nameParser space) <*> annotationParser
 
 inputParser :: Parser ([(String, Type)], ([String], Type))
-inputParser = (,) <$> varDefineListParser <* newline <*> callParser <* eof
+inputParser = (,) <$> varDefineListParser <* newline <*> opParser <* eof
+
+runInference :: ([(String, Type)], ([String], Type)) -> Maybe AST
+runInference (def, ops) = undefined
 
 data Type=TValue|TFunc Type Type deriving (Eq,Show)
 
