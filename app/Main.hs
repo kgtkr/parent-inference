@@ -1,23 +1,31 @@
+{-# LANGUAGE TupleSections #-}
+
 module Main where
 
 import           Data.Map                      as M
 import           Control.Monad.State
 import           Text.ParserCombinators.Parsec
 
-run :: Map String Type -> IO ()
-run m = do
-    return ()
+run :: StateT (Map String Type) IO ()
+run = do
+    input <- lift getLine
+    case parse inputParser "<input>" input of
+        Right (ICode (code, expect)) -> do
+            m <- get
+            case mapM (\x -> (x, ) <$> m M.!? x) code of
+                Just code -> do
+                    let res = evalStateT (inference expect) code
+                    (lift . putStrLn) $ maybeAstToString res
+                Nothing -> (lift . putStrLn) "定義されてない値があります"
+            return ()
+        Right (IDefine (name, t)) -> modify $ M.insert name t
+        Right (ILoad   _        ) -> (lift . putStrLn) "未対応の命令です"
+        Left  e                   -> (lift . print) e
+    run
 
 main :: IO ()
 main = do
-    {-- input <- getUserInput
-    let x = parse inputParser "<input>" input
-    case x of
-        Right x -> do
-            let res = runInference x
-            putStrLn $ maybeAstToString res
-        Left e -> print e --}
-    run M.empty
+    runStateT run M.empty
     return ()
 
 nameParser :: Parser String
@@ -38,7 +46,7 @@ typeParser =
         <|> typeFactorParser
 
 codeParser :: Parser ([String], Type)
-codeParser = (,) <$> (char '>' *> sepBy nameParser space) <*> annotationParser
+codeParser = (,) <$> (sepBy nameParser space) <*> annotationParser
 
 loadParser :: Parser String
 loadParser = many anyChar
@@ -46,9 +54,9 @@ loadParser = many anyChar
 inputParser :: Parser UserInput
 inputParser =
     ILoad
-        <$> (string ":d" *> loadParser <* eof)
+        <$> ((try . string) ":l" *> space *> loadParser <* eof)
         <|> IDefine
-        <$> (string ":d" *> varDefineParser <* eof)
+        <$> ((try . string) ":d" *> space *> varDefineParser <* eof)
         <|> ICode
         <$> (codeParser <* eof)
 
