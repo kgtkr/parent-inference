@@ -4,22 +4,20 @@ import           Data.Map                      as M
 import           Control.Monad.State
 import           Text.ParserCombinators.Parsec
 
-getUserInput :: IO String
-getUserInput = getUserInput' ""
-  where
-    getUserInput' s = do
-        line <- getLine
-        if line == "" then return s else getUserInput' (s ++ line ++ "\n")
+run :: Map String Type -> IO ()
+run m = do
+    return ()
 
 main :: IO ()
 main = do
-    input <- getUserInput
-    let x = parse inputParser "input" input
+    {-- input <- getUserInput
+    let x = parse inputParser "<input>" input
     case x of
         Right x -> do
             let res = runInference x
             putStrLn $ maybeAstToString res
-        Left e -> print e
+        Left e -> print e --}
+    run M.empty
     return ()
 
 nameParser :: Parser String
@@ -31,9 +29,6 @@ annotationParser = string "::" *> typeParser
 varDefineParser :: Parser (String, Type)
 varDefineParser = (,) <$> nameParser <*> annotationParser
 
-varDefineListParser :: Parser [(String, Type)]
-varDefineListParser = sepBy varDefineParser newline
-
 typeFactorParser :: Parser Type
 typeFactorParser = char '(' *> typeParser <* char ')' <|> (TValue <$ char '*')
 
@@ -41,14 +36,23 @@ typeParser :: Parser Type
 typeParser =
     try (TFunc <$> typeFactorParser <* string "->" <*> typeParser)
         <|> typeFactorParser
-opParser :: Parser ([String], Type)
-opParser = (,) <$> (char '>' *> sepBy nameParser space) <*> annotationParser
 
-inputParser :: Parser ([(String, Type)], ([String], Type))
-inputParser = (,) <$> varDefineListParser <* newline <*> opParser <* eof
+codeParser :: Parser ([String], Type)
+codeParser = (,) <$> (char '>' *> sepBy nameParser space) <*> annotationParser
 
-runInference :: ([(String, Type)], ([String], Type)) -> Maybe AST
-runInference (def, ops) = undefined
+loadParser :: Parser String
+loadParser = many anyChar
+
+inputParser :: Parser UserInput
+inputParser =
+    ILoad
+        <$> (string ":d" *> loadParser <* eof)
+        <|> IDefine
+        <$> (string ":d" *> varDefineParser <* eof)
+        <|> ICode
+        <$> (codeParser <* eof)
+
+data UserInput=ILoad String|IDefine (String, Type)|ICode ([String], Type)
 
 data Type=TValue|TFunc Type Type deriving (Eq,Show)
 
