@@ -37,6 +37,9 @@ annotationParser = string "::" *> typeParser
 varDefineParser :: Parser (String, Type)
 varDefineParser = (,) <$> nameParser <*> annotationParser
 
+varDefineFileParser :: Parser [(String, Type)]
+varDefineFileParser = sepBy varDefineParser newline <* eof
+
 typeFactorParser :: Parser Type
 typeFactorParser = char '(' *> typeParser <* char ')' <|> (TValue <$ char '*')
 
